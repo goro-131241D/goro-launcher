@@ -1,0 +1,106 @@
+# ホットキー
+hot_key: Ctrl+Alt+N
+# メニュー選択時の文字列
+key_map: 123456789abcdefghijklmnopqrstuvwxyz
+# メニュー
+# 実行ファイルの探し方
+# メニューから目的のアプリのアイコンの上で右クリックし、
+# その他 > ファイルの場所を開く
+# フォルダが開いたら目的のアプリのショートカットのアイコンで右クリックし、プロパティを開く
+# リンク先のパスをコピーして、commandに設定する
+# その際、バックスラッシュを2つ重ねてエスケープすること
+menu:
+  - name: よく使う
+    items:
+      - name: Firefox
+        # パスの通っているコマンドはそのまま指定できる
+        command: firefox
+      - name: Explorer
+        command: explorer
+      - name: Cmd.exe
+        command: start "" "run_cmdexe.bat"
+      - name: PowerShell
+        #command: start "" "%SystemRoot%\\system32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        #うまくいかない時やオプションや付帯する設定がある場合は、バッチファイルを作成して、それを実行する
+        #また、何度も書き換えする場合は、バッチファイルを作成して、それを実行するとyamlの書き換えは不要になる
+        command: start "" "run_powershell.bat"
+      - name: VSCode
+        command: code
+  - name: ブラウザ
+    items:
+      - name: Firefox
+        # ファイルを開く場合は、start "My Window Title" "C:\Program Files\app.exe" arg1 arg2 のようにする
+        # start "My Window Title" "C:\Program Files\app.exe" arg1 arg2
+        #command: "start \"\" \"C:\\Program Files\\Mozilla Firefox\\firefox.exe\""
+        #command: "C:/Program Files/Mozilla Firefox/firefox.exe"
+        command: "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+      - name: Chrome
+        command: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+      - name: Edge
+        command: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+  - name: オフィス
+    items:
+      - name: "<<Microsoft Office>>" #下に階層がある場合は、名前を工夫するとわかりやすい
+        items:
+          - name: Excel
+            # コマンドに空白を含む場合は、ダブルクォーテーションで囲む
+            command: "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+          - name: Word
+            command: "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
+          - name: PowerPoint
+            command: "C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE"
+      - name: LibreOffice Calc
+        command: "C:\\Program Files\\LibreOffice\\program\\scalc.exe"
+      - name: LibreOffice Writer 
+        command: "C:\\Program Files\\LibreOffice\\program\\swriter.exe"
+      - name: LibreOffice Impress
+        command: "C:\\Program Files\\LibreOffice\\program\\simpress.exe"
+  - name: 開発
+    items:
+      - name: IDE
+        items:
+          - name: PyCharm
+            command: pycharm
+          - name: VSCode
+            command: "C:\\Windows\\System32\\notepad.exe"
+      - name: Terminal Tools
+        items:
+          - name: Git Bash
+            command: git-bash
+          - name: PowerShell
+            command: powershell
+  - name: ツール
+    items:
+      - name: System Tools
+        items:
+          - name: Task Manager
+            command: taskmgr
+          - name: File Explorer
+            command: explorer
+  - name: ゲーム
+    items:
+      - name: Game Launchers
+        items:
+          - name: Steam
+            command: steam
+          - name: Epic Games
+            command: epicgames
+  - name: BookMark
+    items:
+      - name: Goro-BizAid
+        # urlを開く場合は、start https://goro-bizaid.com/ のようにする
+        command: start https://goro-bizaid.com/
+      - name: Google
+        command: start https://www.google.com/
+      - name: Yahoo
+        command: start chrome https://www.yahoo.co.jp/
+  - name: Folder
+    items:
+      - name: ドキュメントフォルダー
+        command: start file:////%USERPROFILE%/Documents/
+      - name: Google
+        # フォルダを開く場合は、start "" "C:\MyFolder" のようにする
+        # start "" "C:\MyFolder"
+        command: "start \"\" \"%USERPROFILE%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\""
+  - name: "その他"
+    items: []  # 空のリストにすることで、子項目を持たない状態にする
