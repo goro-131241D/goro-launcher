@@ -16,6 +16,13 @@ import ctypes
 from ctypes import wintypes
 import uuid
 import traceback  # エラーハンドリング用
+from jsonschema import validate, ValidationError
+import tkinter as tk
+from tkinter import messagebox
+
+# ウィンドウを隠す
+root = tk.Tk()
+root.withdraw()
 
 # グローバル変数の初期化
 menu_path = 'menu.yaml'
@@ -25,6 +32,29 @@ hot_key = 'ctrl+alt+n'  # デフォルトのホットキー
 key_map = '1234567890abcdefghijklmnopqrstuvwxyz'  # デフォルトのキー割り当て
 HOTKEY_ID = uuid.uuid4().int & 0xFFFF  # ユニークな HOTKEY_ID を生成
 menu_data = []  # メニューのデータを格納
+dummy_menu = [{"name":"Empty", "items":[]}]  # エラー時のダミーメニュー
+schema =  schema = {
+    "type": "object",
+    "properties": {
+        "hot_key": {"type": "string"},
+        "key_map": {"type": "string"},
+        "menu": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "command": {"type": "string"},
+                    "items": {  # 再帰的に自身を参照する形で定義
+                        "type": "array",
+                        "items": {"$ref": "#/properties/menu/items"}
+                    }
+                },
+                "required": ["name"]  # 各メニュー項目は少なくともnameが必要
+            }
+        }
+    },
+}
 
 ###############################
 # 設定ファイルの読み込み関数
@@ -35,6 +65,7 @@ def load_config(config_path):
     try:
         with open(config_path, "r", encoding="utf-8") as file:
             config = yaml.safe_load(file)
+        validate(instance=config, schema=schema)
         menu_data = config.get("menu", [])
         hot_key = config.get("hot_key", hot_key)
         key_map = config.get("key_map", key_map)
@@ -42,13 +73,20 @@ def load_config(config_path):
         print(f"Loaded key map: {key_map}")
     except FileNotFoundError:
         print(f"Config file not found: {config_path}")
-        menu_data = []
+        menu_data = dummy_menu
+        messagebox.showerror('Error', 'Config file not found: ' + config_path)
     except yaml.YAMLError as e:
         print(f"YAML Error: {e}")
-        menu_data = []
+        menu_data = dummy_menu
+        messagebox.showerror('Error', 'YAML Error: ' + str(e))
+    except ValidationError as e:
+        print(f"Validation Error: {e}")
+        menu_data = dummy_menu
+        messagebox.showerror('Error', 'Validarion Error: ' + str(e))
     except Exception as e:
         print(f"Error loading config: {e}")
-        menu_data = []
+        menu_data = dummy_menu
+        messagebox.showerror('Error', 'Error loading config: ' + str(e))
 
 ###############################
 # ホットキー文字列のパース関数
@@ -127,10 +165,12 @@ def register_hotkey():
         print(f"Hotkey registered: {hot_key}")
     except ValueError as ve:
         print(f"Invalid hotkey: {ve}")
-        sys.exit(1)
+        # プログラムを終了せず、ユーザーにエラーを通知する
+        # sys.exit(1)
     except pywintypes.error as e:
         print(f"Failed to register hotkey. Error: {traceback.format_exc()}")
-        sys.exit(1)
+        # プログラムを終了せず、ユーザーにエラーを通知する
+        # sys.exit(1)
 
 def unregister_hotkey():
     try:
@@ -156,6 +196,7 @@ class HotkeyEventFilter(QAbstractNativeEventFilter):
 class WindowController(QObject):
     show_signal = pyqtSignal()
     hide_signal = pyqtSignal()
+    close_window_signal = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -165,15 +206,17 @@ class WindowController(QObject):
     def create_window(self):
         if not self.window:
             try:
+                print('create_window *************************')
                 self.window = LauncherWindow(menu_data)
                 self.show_signal.connect(self.window.show)
                 self.hide_signal.connect(self.window.hide)
+                self.close_window_signal.connect(self.window.close)
             except Exception as e:
                 print(f"Error creating LauncherWindow: {traceback.format_exc()}")
 
     def show_window(self):
-        if not self.window:
-            self.create_window()
+        #if not self.window:
+        #    self.create_window()
         self.show_signal.emit()
 
     def hide_window(self):
@@ -187,7 +230,8 @@ class WindowController(QObject):
 
     def close_window(self):
         if self.window:
-            self.window.close()
+            self.close_window_signal.emit()
+            self.window.deleteLater()
             self.window = None
 
 ###############################
@@ -325,7 +369,7 @@ class LauncherWindow(QWidget):
         self.simulate_click()
 
     def hide(self):
-        self.reset_menu()
+        #self.reset_menu()
         super().hide()
 
     def clear_layout(self, layout):
@@ -500,6 +544,16 @@ class LauncherWindow(QWidget):
         except Exception as e:
             print(f"Error in bring_to_front: {traceback.format_exc()}")
 
+    def closeEvent(self, event):
+        self.removeEventFilter(self)
+        super().closeEvent(event)
+
+    def close(self):
+        print('LauncherWindow close *************************')
+        self.removeEventFilter(self)
+        super().close()
+
+
 ###############################
 # Main Thread
 ###############################
@@ -512,6 +566,17 @@ def exit_app():
         controller.hide_window()
         controller.close_window()
         QApplication.quit()
+
+def reload_menu():
+    try:
+        controller.hide_window()
+        controller.close_window()
+        unregister_hotkey()
+        load_config(menu_path)
+        register_hotkey()
+        controller.create_window()
+    except Exception as e:
+        print(f"Error in reload_menu: {traceback.format_exc()}")
 
 if __name__ == '__main__':
     print("Starting application")
@@ -532,6 +597,8 @@ if __name__ == '__main__':
     tray_icon.setToolTip('Launcher')
 
     tray_menu = QMenu()
+    reload_menu_action = QAction('Reload Menu')
+    reload_menu_action.triggered.connect(lambda: QTimer.singleShot(0, reload_menu))
     show_action = QAction('Disp')
     show_action.triggered.connect(controller.show_window)
     hide_action = QAction('Hide')
@@ -539,6 +606,7 @@ if __name__ == '__main__':
     exit_action = QAction('Exit')
     exit_action.triggered.connect(exit_app)
 
+    tray_menu.addAction(reload_menu_action)
     tray_menu.addAction(show_action)
     tray_menu.addAction(hide_action)
     tray_menu.addSeparator()
@@ -558,3 +626,4 @@ if __name__ == '__main__':
         print(f"Application exited with error: {traceback.format_exc()}")
     finally:
         unregister_hotkey()
+        root.destroy()
